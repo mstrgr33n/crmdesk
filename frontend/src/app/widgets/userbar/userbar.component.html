@@ -1,0 +1,5 @@
+<div class="users-panel">
+  <div *ngFor="let user of activeUsers$ | async" class="user-item">
+   {{ user.name }}
+  </div>
+</div>
