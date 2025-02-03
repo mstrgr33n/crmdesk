@@ -1,12 +1,16 @@
 import { ElementRef, Injectable } from '@angular/core';
-import { Canvas, Point, Rect,
+import {
+  Canvas, Point, Rect,
   Ellipse, Circle, TPointerEvent, TPointerEventInfo,
-  Shadow, 
+  Shadow,
   FabricObject,
-  Line} from 'fabric';
+  Line,
+  util
+} from 'fabric';
 import { CanvasModes } from '../shared/types/CanvasModes';
 import { v4 as uuidv4 } from 'uuid';
-import LeaderLine from 'leader-line-integrate';
+import { HelperFunctions } from '../shared/utils/helper.functions';
+import { ClosestPoints } from '../shared/utils/closest-points.functions';
 
 @Injectable({
   providedIn: 'root'
@@ -60,11 +64,11 @@ export class CanvasService {
   setCanvasMode(mode: CanvasModes) {
     this.canvasMode = mode;
     this.canvas.isDrawingMode = false;
-    this.canvas.off('mouse:down'); 
+    this.canvas.off('mouse:down');
 
     if (mode === CanvasModes.Select) {
       this.canvas.selection = true;
-    } else if(mode  === CanvasModes.Erase) {
+    } else if (mode === CanvasModes.Erase) {
       this.canvas.selection = true;
       this.canvas.on('mouse:down', (event) => this.deleteSelected(event));
     } else if (mode === CanvasModes.Arrow) {
@@ -78,7 +82,7 @@ export class CanvasService {
   startLinks(event: TPointerEventInfo<TPointerEvent>): any {
     if (!event.target) return;
     if (this.fromObject) {
-      this.addLinks(this.fromObject, event.target as any);
+      this.addLinks(this.fromObject, event.target);
     } else {
       this.fromObject = event.target;
     }
@@ -96,7 +100,7 @@ export class CanvasService {
   startDrawing(event: TPointerEventInfo<TPointerEvent>) {
     const pointer = this.canvas.getViewportPoint(event.e);
     const id = uuidv4();
-    let canvasObject: any = null ;
+    let canvasObject: any = null;
     switch (this.canvasMode) {
       case CanvasModes.Rect:
         this.canvas.add(this.createRectangle(pointer));
@@ -151,18 +155,12 @@ export class CanvasService {
     return circle;
   }
 
-  addLinks(source: FabricObject, target: FabricObject) {
-    let start = source.getCoords();
-    debugger
-    let end = target.getXY();/*
-
-    const line = new Line([start.x, start.y, end.x, end.y], {
-      stroke: 'black',
-      strokeWidth: 2,
-    });
-
-    this.canvas.add(line);
-    this.canvas.requestRenderAll();*/
+  addLinks(source: any, target: any) {
+    let closestPoints: [Point, Point] | null = ClosestPoints.findClosestMidpoints(source.getCoords(), target.getCoords());
+    if (!closestPoints) return;
+    var arrow = HelperFunctions.drawArrow(closestPoints[0], closestPoints[1]);
+    this.canvas.add(arrow);
+    this.canvas.requestRenderAll();
 
     this.fromObject = null;
   }

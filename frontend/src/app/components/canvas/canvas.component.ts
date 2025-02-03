@@ -21,6 +21,7 @@ import { ToolbarComponent } from '../../widgets/toolbar/toolbar.component';
 
 export class CanvasComponent implements AfterViewInit,  OnDestroy {
   @ViewChild('canvas', { static: false }) canvasRef!: ElementRef;
+  @ViewChild('svg', { static: false }) svgRef!: SVGElement;
   @Input() url!: string;
   @Input() userName!: string;
   @Input() roomId!: string;
