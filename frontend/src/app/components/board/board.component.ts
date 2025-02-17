@@ -1,18 +1,32 @@
-import { AfterViewInit, OnInit, Component, ElementRef, ViewChild } from '@angular/core';
-import { dia, shapes, elementTools } from '@joint/core';
+import { 
+  AfterViewInit, 
+  Component, 
+  ElementRef, 
+  ViewChild, 
+  ChangeDetectionStrategy, 
+  OnChanges, 
+  SimpleChanges,
+  input} from '@angular/core';
 import { ToolbarComponent } from "../../widgets/toolbar/toolbar.component";
 import { BoardService } from '../../services/board.service';
+import { SocketService } from '../../services/socket.service';
+
 
 @Component({
   selector: 'app-board',
   imports: [ToolbarComponent],
   templateUrl: './board.component.html',
-  styleUrl: './board.component.css'
+  styleUrl: './board.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class BoardComponent implements AfterViewInit {
+export class BoardComponent implements AfterViewInit, OnChanges {
   @ViewChild('board') board!: ElementRef;
+  backendUrl = input<string>();
+  roomId = input<string>();
 
-  constructor(private boardService: BoardService) { }
+  constructor(
+    private boardService: BoardService, 
+    private socketService: SocketService) { }
 
   ngAfterViewInit() {
     this.boardService.initilizeBoard(this.board);
@@ -175,4 +189,18 @@ export class BoardComponent implements AfterViewInit {
     rect.findView(paper).addTools(toolsView);
 
   */}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    let backendUrl = changes['backendUrl'].currentValue;
+    let roomId = changes['roomId'].currentValue;
+    if (backendUrl && roomId) {
+      this.initializeSocketConnection(backendUrl, roomId);
+    }
+  }
+
+  initializeSocketConnection(url: string, roomId: string) {
+    this.socketService.initializeSocket(url);
+    this.boardService.initializeSocketHadler(roomId);
+  }
+
 }

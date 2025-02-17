@@ -4,7 +4,8 @@ import { ToolbarService } from './toolbar.service';
 import { BoardState } from '../shared/models/boardstate.enum';
 import { dia, shapes, connectionStrategies } from '@joint/core';
 import { v4 as uuidv4 } from 'uuid';
-import { JointTools } from '../shared/tools/jointtool.model';
+import { JointTools } from '../shared/models/jointtool.model';
+import { SocketService } from './socket.service';
 
 @Injectable({
   providedIn: 'root'
@@ -15,7 +16,10 @@ export class BoardService {
   private paper!: dia.Paper;
   private tools = new JointTools();
 
-  constructor(private toolbarService: ToolbarService) {
+  constructor(
+    private toolbarService: ToolbarService,
+    private socketService: SocketService
+  ) {
     this.toolbarService.getMode().subscribe(mode => {
       this.currentMode = mode;
     });
@@ -190,6 +194,75 @@ export class BoardService {
       },
     });
     this.graph.addCell(notes);
+    this.socketService.emit('createObject', notes);
+  }
+
+  public initializeSocketHadler(roomId: string) {
+    this.socketService.on('initialState', (objects: any[]) => {
+      objects.forEach((obj) => {
+        const element = this.createJointElement(obj);
+        this.graph.addCell(element);
+      });
+    });
+
+    this.socketService.on('objectCreated', (obj: any) => {
+      const element = this.createJointElement(obj);
+      this.graph.addCell(element);
+    });
+
+    this.socketService.on('objectUpdated', (data: any) => {
+      const cell = this.graph.getCell(data.id);
+      if (cell) {
+        cell.set('position', data.data.position);
+        cell.set('size', data.data.size);
+      }
+    });
+
+    this.socketService.on('objectLocked', ({ id, lockedBy }: { id: string; lockedBy: string }) => {
+      const cell = this.graph.getCell(id);
+      if (cell) {
+        cell.attr({ body: { fill: 'lightgray' } });
+      }
+    });
+
+    this.socketService.on('objectUnlocked', ({ id }: { id: string }) => {
+      const cell = this.graph.getCell(id);
+      if (cell) {
+        cell.attr({ body: { fill: 'white' } });
+      }
+    });
+
+    // Join a room
+    this.socketService.emit('joinRoom', { roomId: roomId, userName: 'User1' });
+  }
+
+  createJointElement(obj: any): any  {
+    switch (obj.type) {
+      case 'standard.Rectangle':
+        return new shapes.standard.Rectangle({
+          id: obj.id,
+          position: obj.data.position,
+          size: obj.data.size,
+          attrs: {
+            body: { fill: 'white' },
+            label: { text: obj.data.label || '' },
+          },
+        });
+      case 'standard.Circle':
+        return new shapes.standard.Circle({
+          id: obj.id,
+          position: obj.data.position,
+          size: obj.data.size,
+          attrs: {
+            body: { fill: 'white' },
+            label: { text: obj.data.label || '' },
+          },
+        });
+      case "standard.HeaderedRectangle":
+        return new shapes.standard.HeaderedRectangle(obj.data);
+      default:
+        return null;
+    }
   }
 
 }
