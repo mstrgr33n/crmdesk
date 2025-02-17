@@ -1,0 +1,27 @@
+.toolbar {
+  position: fixed;
+  margin: 0;
+  top: 50%;
+  left: 1rem;
+  transform: translate(0, -50%);
+  display: flex;
+  flex-direction: column;
+  border-radius: 5px;
+  z-index: 1000;
+  filter: drop-shadow(0 0 10px #c0c0c0);
+  background-color: #ffffff;
+  overflow: hidden;
+}
+
+.tool.active {
+  background-color: #ffa631;
+  color: rgb(255, 255, 255);
+}
+
+.tool {
+  width: 3.5rem;
+  height: 3.5rem;
+  cursor: pointer;
+  border: none;
+  background-color: #ffffff;
+}
