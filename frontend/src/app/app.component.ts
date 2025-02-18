@@ -1,13 +1,13 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { CanvasComponent } from './components/canvas/canvas.component';
+import { BoardComponent } from "./components/board/board.component";
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CanvasComponent],
+  imports: [RouterOutlet, BoardComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
 export class AppComponent {
-  title = 'whiteboard';
+  title = 'frontend';
 }

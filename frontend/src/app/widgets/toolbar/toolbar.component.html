@@ -1,8 +1,7 @@
-<div
-  class=" fixed flex-col inline-grid z-1 top-1/2  left-1 bg-white rounded-lg shadow-md align-middle">
-  <div *ngFor="let item of buttons" class="overflow-hidden rounded-lg" id="{{item.mode}}">
-    <button (click)="setMode(item.mode)" [class.active]="currentMode === item.mode" class="w-12 h-12  text-emerald-800 ">
-      <fa-icon [icon]="item.icon"></fa-icon>
-    </button>
-  </div>
+<div class="toolbar">
+    @for (item of buttons; track item) {
+        <button (click)="setMode(item.mode)" [class.active]="currentMode === item.mode" class="tool">
+            <fa-icon [icon]="item.icon"></fa-icon>
+        </button>
+    }
 </div>

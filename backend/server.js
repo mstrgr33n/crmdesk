@@ -80,14 +80,15 @@ async function startServer() {
 
             // Handle object creation
             socket.on('createObject', async (data) => {
-                const objectId = uuidv4();
                 const object = await ObjectModel.create({
-                    id: objectId,
+                    id: data.id,
                     room_id: roomId,
                     type: data.type,
-                    data: data.data,
+                    data: data,
                 });
-                await redisClient.set(`lock:${objectId}`, userName, { EX: 60 * 5 });
+                object.changed('data', true);
+                await object.save();
+                await redisClient.set(`lock:${data.id}`, userName, { EX: 60 * 5 });
                 io.to(roomId).emit('objectCreated', object);
             });
 
@@ -97,6 +98,8 @@ async function startServer() {
                     { data: data.data },
                     { where: { id: data.id, room_id: roomId } }
                 );
+                object.changed('data', true);
+                await object.save();
                 await redisClient.set(`lock:${data.id}`, userName, { EX: 60 * 5 });
                 io.to(roomId).emit('objectUpdated', data);
             });

@@ -1,52 +1,38 @@
-import { Component } from '@angular/core';
-import { CanvasService } from '../../services/canvas.service';
-import { CanvasModes } from '../../shared/types/CanvasModes';
+import { Component, OnInit } from '@angular/core';
+import { ToolbarService } from '../../services/toolbar.service';
+import { BoardState } from '../../shared/models/boardstate.enum';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import {faMousePointer, faSquare, faCircle, faEraser, faStickyNote, faLink } from '@fortawesome/free-solid-svg-icons';
-import { NgFor } from '@angular/common';
+import {
+  faT, 
+  faMousePointer, 
+  } from '@fortawesome/free-solid-svg-icons';
+  import { faSquare, faCircle, faStickyNote } from '@fortawesome/free-regular-svg-icons';
 
 @Component({
   selector: 'app-toolbar',
-  imports: [FontAwesomeModule, NgFor],
+  imports: [FontAwesomeModule],
   templateUrl: './toolbar.component.html',
   styleUrl: './toolbar.component.css'
 })
-export class ToolbarComponent {
-  buttons = [
-    {
-      icon: faMousePointer,
-      mode: CanvasModes.Select,
-      tooltip: 'Select'
-    },
-    {
-      icon: faSquare,
-      mode: CanvasModes.Rect,
-      tooltip: 'Rectangle'
-    },
-    {
-      icon: faCircle,
-      mode: CanvasModes.Circle,
-      tooltip: 'Circle'
-    },
-    {
-      icon: faLink,
-      mode: CanvasModes.Arrow,
-      tooltip: 'Note'
-    },
-    {
-      icon: faEraser,
-      mode: CanvasModes.Erase,
-      tooltip: 'Eraser'
-    }
-  ];
-  
-  CanvasModes = CanvasModes;
-  currentMode = CanvasModes.Select;
+export class ToolbarComponent implements OnInit {
+  currentMode: BoardState | null = null;
+  public buttons = [
+    { name: 'Select', mode: BoardState.Select, icon: faMousePointer },
+    { name: 'Text', mode: BoardState.Text, icon: faT },
+    { name: 'Rectangle', mode: BoardState.Rectangle, icon: faSquare },
+    { name: 'Ellipse', mode: BoardState.Ellipse, icon: faCircle },
+    { name: 'Notes', mode: BoardState.Notes, icon: faStickyNote }
+  ]
 
-  constructor(public canvasService: CanvasService) {}
+  constructor(private boardService: ToolbarService) {}
 
-  setMode(mode: CanvasModes) {
-    this.currentMode = mode;
-    this.canvasService.setCanvasMode(mode);
+  setMode(mode: BoardState) {
+    this.boardService.setMode(mode);
+  }
+
+  ngOnInit() {
+    this.boardService.getMode().subscribe(mode => {
+      this.currentMode = mode;
+    });
   }
 }
