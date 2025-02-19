@@ -6,13 +6,16 @@ import { dia, shapes, connectionStrategies } from '@joint/core';
 import { v4 as uuidv4 } from 'uuid';
 import { JointTools } from '../shared/models/jointtool.model';
 import { SocketService } from './socket.service';
+import { BehaviorSubject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
 })
 export class BoardService {
-  private currentMode: BoardState | null = null;
-  private graph = new dia.Graph({}, { cellNamespace: shapes });
+  private showAttributePanel = new BehaviorSubject<boolean>(false);
+  private positionAttributePanel = new BehaviorSubject<Point>({x: 0, y: 0});
+  private currentMode: BoardState | null = BoardState.Select;
+  private graph = new dia.Graph({}, { cellNamespace: shapes,});
   private paper!: dia.Paper;
   private tools = new JointTools();
   private currentElement: dia.ElementView | null = null;
@@ -27,13 +30,16 @@ export class BoardService {
   }
 
   initilizeBoard(boardId: ElementRef) {
+    this.graph.on('remove', (cell: dia.Cell) => {
+      this.showAttributePanel.next(false);
+    });
     this.paper = new dia.Paper({
       el: boardId.nativeElement,
       width: window.innerWidth,
       height: window.innerHeight,
       drawGrid: { name: "dot" },
       background: { color: "#F3F7F6" },
-      gridSize: 20,
+      gridSize: 10,
       step: 1,
       model: this.graph,
       cellViewNamespace: shapes,
@@ -42,14 +48,14 @@ export class BoardService {
       defaultRouter: {
         name: "manhattan",
         args: {
-          step: 5,
+          step: 10,
           endDirections: ["right", "left", "top", "bottom" ],
           startDirections: ["left", "right", "bottom", "top" ],
           padding: { 
-            bottom: 5,
-            top: 5,
-            left: 5,
-            right: 5
+            bottom: 20,
+            top: 20,
+            left: 20,
+            right: 20
           }
         }
       },
@@ -81,15 +87,25 @@ export class BoardService {
     this.paper.on('blank:pointerclick', (event: any, x: number, y: number) => {
       this.currentElement?.removeTools();
       this.currentElement = null;
+      if(this.showAttributePanel.value) this.showAttributePanel.next(false);
       this.addShape(event, x, y);
     } );
     this.paper.on('element:pointerclick', elementView => {
       this.currentElement = elementView;
       elementView.addTools(tools.LinkTools);
     });
-    this.paper.on('element:unselect', elementView => {
-      elementView.removeTools();
+
+    this.paper.on('element:pointermove', (elementView, evt, x, y) => {
+      let bbox = elementView.getBBox().topLeft();
+      this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
     });
+
+    this.paper.on('element:pointerdown',  (elementView, evt, x, y) => {
+      let bbox = elementView.getBBox().topLeft();
+      this.showAttributePanel.next(true);
+      this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
+    });
+
     this.paper.on('link:mouseenter', function (linkView: dia.LinkView) {
       linkView.addTools(tools.ArrowTools);
     });
@@ -97,6 +113,48 @@ export class BoardService {
     this.paper.on('link:mouseleave', function (linkView) {
       linkView.removeTools();
     });
+
+    this.paper.on('cell:pointerdblclick', function (cellView, evt, x, y) {
+      const cell = cellView.model; // Получаем модель ячейки
+      const labels: any = cell?.attributes?.attrs;// Получаем метки ячейки, если они естьlabel; // Получаем текущие метки
+
+      if (labels && labels.label) {
+        const labelText = labels.label.text; // Текущий текст метки
+        // Создаем textarea для редактирования
+        const textarea = document.createElement('textarea');
+        textarea.value = labelText;
+        textarea.style.position = 'absolute';
+        textarea.style.top = `${y}px`;
+        textarea.style.left = `${x}px`;
+        textarea.style.zIndex = '1000';
+        textarea.style.width = '200px';
+        textarea.style.height = '50px';
+        textarea.style.padding = '5px';
+        textarea.style.boxSizing = 'border-box';
+
+        document.body.appendChild(textarea);
+
+        // После завершения редактирования
+        textarea.addEventListener('keydown', (event: KeyboardEvent) => {
+          if ((event.key === 'Enter' && event.ctrlKey) || event.key === 'Escape') {
+            const updatedText = textarea.value;
+            // Обновляем текст метки
+            cell.set('labels', [{
+              position: { name: 'center' },
+              attrs: { text: updatedText, fontSize: 14, fill: 'black' }
+            }]);
+            cell.attr('label/text', updatedText);; //.attrs.set('text', updatedText); // Обновляем текст в модели = updatedText;
+
+            // Удаляем textarea
+            document.body.removeChild(textarea);
+          }
+        });
+
+        // Автоматически фокусируемся на textarea
+        textarea.focus();
+        textarea.select();
+      }
+    }); 
   }
 
   addShape(event: any, x: number, y: number) {
@@ -122,16 +180,14 @@ export class BoardService {
     }
   }
   createText(position: Point) {
-    const cilinder = new shapes.standard.Cylinder({
+    const cilinder = new shapes.standard.TextBlock({
       id: uuidv4(),
       position: { x: position.x, y: position.y },
       size: { width: 160, height: 60 },
       attrs: {
         body: {
-          magnets: true,
-          label: 'test',
-          textDecoration: 'underline',
-          textRendering: 'auto',
+          fill: 'none',
+          stroke:'none'
         },
         label: { text: 'Double-click to edit', style: { fontSize: 14, fill: 'black' } },
       },
@@ -291,6 +347,14 @@ export class BoardService {
       default:
         return null;
     }
+  }
+
+  onPanelPositionChange() {
+    return this.positionAttributePanel.asObservable();
+  }
+
+  onPanelVisibilityChange() {
+    return this.showAttributePanel.asObservable();
   }
 }
 

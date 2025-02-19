@@ -3,10 +3,10 @@ import { ToolbarService } from '../../services/toolbar.service';
 import { BoardState } from '../../shared/models/boardstate.enum';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import {
-  faT, 
+  faDatabase, 
   faMousePointer, 
   } from '@fortawesome/free-solid-svg-icons';
-  import { faSquare, faCircle, faStickyNote } from '@fortawesome/free-regular-svg-icons';
+  import { faSquare, faCircle, faStickyNote, faPenToSquare } from '@fortawesome/free-regular-svg-icons';
 
 @Component({
   selector: 'app-toolbar',
@@ -18,7 +18,7 @@ export class ToolbarComponent implements OnInit {
   currentMode: BoardState | null = null;
   public buttons = [
     { name: 'Select', mode: BoardState.Select, icon: faMousePointer },
-    { name: 'Text', mode: BoardState.Text, icon: faT },
+    { name: 'Text', mode: BoardState.Text, icon: faPenToSquare },
     { name: 'Rectangle', mode: BoardState.Rectangle, icon: faSquare },
     { name: 'Ellipse', mode: BoardState.Ellipse, icon: faCircle },
     { name: 'Notes', mode: BoardState.Notes, icon: faStickyNote }

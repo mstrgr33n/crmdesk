@@ -10,11 +10,12 @@ import {
 import { ToolbarComponent } from "../../widgets/toolbar/toolbar.component";
 import { BoardService } from '../../services/board.service';
 import { SocketService } from '../../services/socket.service';
+import { AttributeEditorComponent } from '../../widgets/attribute-editor/attribute-editor.component';
 
 
 @Component({
   selector: 'app-board',
-  imports: [ToolbarComponent],
+  imports: [ToolbarComponent, AttributeEditorComponent],
   templateUrl: './board.component.html',
   styleUrl: './board.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush

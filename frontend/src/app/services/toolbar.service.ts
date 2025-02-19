@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { dia, shapes, util, elementTools, linkTools } from '@joint/core';
 import { BehaviorSubject  } from 'rxjs';
 import { BoardState } from '../shared/models/boardstate.enum';
 

@@ -1,0 +1,9 @@
+@if (showPanel) {
+<div class="attribute-editor" [style.left.px]="panelPosition.x" [style.top.px]="panelPosition.y">
+    @for (item of buttons; track item) {
+    <button class="attribute-tool">
+        <fa-icon [icon]="item.icon"></fa-icon>
+    </button>
+    }
+</div>
+}
