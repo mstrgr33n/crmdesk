@@ -133,7 +133,7 @@ export class BoardComponent implements AfterViewInit, OnChanges {
           tagName: 'path',
           selector: 'icon',
           attributes: {
-            d: 'M 3 3 3 5 M 1 1 3 0',
+            d: 'M 3 3 3 5 M 1 1 3 0 z',
             'fill': 'none',
             'stroke': 'red',
             'stroke-width': 1,
@@ -199,8 +199,8 @@ export class BoardComponent implements AfterViewInit, OnChanges {
   }
 
   initializeSocketConnection(url: string, roomId: string) {
-    this.socketService.initializeSocket(url);
-    this.boardService.initializeSocketHadler(roomId);
+    //this.socketService.initializeSocket(url);
+    // this.boardService.initializeSocketHadler(roomId);
   }
 
 }

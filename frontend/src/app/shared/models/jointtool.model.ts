@@ -51,8 +51,14 @@ export class JointTools {
         markup: this.getMarkup(180)
     });
 
+    removeItemButton = new elementTools.Remove({
+        magnet: 'body'
+    });
+
     LinkTools = new dia.ToolsView({
-        tools: [this.connectRight, this.connectLeft, this.connectTop, this.connectBottom]
+        tools: [this.connectRight, this.connectLeft, this.connectTop, this.connectBottom, new this.ResizeTool({
+            selector: "body"
+        }), this.removeItemButton]
     });
 
     verticesTool = new linkTools.Vertices();
@@ -62,7 +68,7 @@ export class JointTools {
     sourceAnchorTool = new linkTools.SourceAnchor();
     targetAnchorTool = new linkTools.TargetAnchor();
     boundaryTool = new linkTools.Boundary();
-    removeButton = new linkTools.Remove({
+    removeLinksButton = new linkTools.Remove({
         magnet: 'body',
         distance: 15
     });
@@ -72,7 +78,7 @@ export class JointTools {
             this.verticesTool, this.segmentsTool,
             this.targetArrowheadTool,
             this.sourceAnchorTool, this.targetAnchorTool,
-            this.boundaryTool, this.removeButton
+            this.boundaryTool, this.removeLinksButton
         ]
     });
 
@@ -116,6 +122,4 @@ export class JointTools {
     }
 
 }
-
-
 

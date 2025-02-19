@@ -15,6 +15,7 @@ export class BoardService {
   private graph = new dia.Graph({}, { cellNamespace: shapes });
   private paper!: dia.Paper;
   private tools = new JointTools();
+  private currentElement: dia.ElementView | null = null;
 
   constructor(
     private toolbarService: ToolbarService,
@@ -38,19 +39,35 @@ export class BoardService {
       cellViewNamespace: shapes,
       async: true,
       interactive: true,
+      defaultRouter: {
+        name: "manhattan",
+        args: {
+          step: 5,
+          endDirections: ["right", "left", "top", "bottom" ],
+          startDirections: ["left", "right", "bottom", "top" ],
+          padding: { 
+            bottom: 5,
+            top: 5,
+            left: 5,
+            right: 5
+          }
+        }
+      },
+      defaultConnector: {
+        name: "rounded"
+      },
+      clickThreshold: 10,
       defaultLink: () => new shapes.standard.Link({
-        router: { name: "orthogonal" },
-        connector: { name: "rounded" },
         attrs: {
           line: {
             stroke: "#000000",
             strokeWidth: 2,
             targetMarker: {
-              shape: "circle",
-              radius: 5,
-              fill: "#000000"
-            }
-          }
+              shape: "square",
+              radius: 1,
+              fill: "#red"
+            },
+          },
         }
       }),
       connectionStrategy: connectionStrategies.pinRelative
@@ -61,11 +78,16 @@ export class BoardService {
 
   initializeHandlers() {
     const tools = this.tools.getJointTools()
-    this.paper.on('blank:pointerclick', this.addShape.bind(this));
-    this.paper.on('element:mouseenter', elementView => {
+    this.paper.on('blank:pointerclick', (event: any, x: number, y: number) => {
+      this.currentElement?.removeTools();
+      this.currentElement = null;
+      this.addShape(event, x, y);
+    } );
+    this.paper.on('element:pointerclick', elementView => {
+      this.currentElement = elementView;
       elementView.addTools(tools.LinkTools);
     });
-    this.paper.on('element:mouseleave', elementView => {
+    this.paper.on('element:unselect', elementView => {
       elementView.removeTools();
     });
     this.paper.on('link:mouseenter', function (linkView: dia.LinkView) {
@@ -105,6 +127,12 @@ export class BoardService {
       position: { x: position.x, y: position.y },
       size: { width: 160, height: 60 },
       attrs: {
+        body: {
+          magnets: true,
+          label: 'test',
+          textDecoration: 'underline',
+          textRendering: 'auto',
+        },
         label: { text: 'Double-click to edit', style: { fontSize: 14, fill: 'black' } },
       },
     });
@@ -145,7 +173,7 @@ export class BoardService {
       id: uuidv4(),
       position: { x: position.x, y: position.y },
       size: { width: 150, height: 150 },
-      radius: 50,
+      //radius: 150,
       attrs: {
         body: {
           fill: '#fff',
@@ -154,7 +182,7 @@ export class BoardService {
           filter: {
             name: 'highlight',
             args: {
-              color: 'red',
+              color: 'grey',
               width: 2,
               opacity: 0.5,
               blur: 5
@@ -194,7 +222,7 @@ export class BoardService {
       },
     });
     this.graph.addCell(notes);
-    this.socketService.emit('createObject', notes);
+    // this.socketService.emit('createObject', notes);
   }
 
   public initializeSocketHadler(roomId: string) {
@@ -264,7 +292,6 @@ export class BoardService {
         return null;
     }
   }
-
 }
 
 
