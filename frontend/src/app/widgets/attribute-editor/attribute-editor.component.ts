@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component } from '@angular/core';
 import { Point } from '../../shared/models/point.model';
 import { BoardService } from '../../services/board.service';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
@@ -9,7 +9,8 @@ import { faFaceSmile, faEdit, faHandPointDown, faCopy, faComment, faNoteSticky }
   selector: 'app-attribute-editor',
   imports: [FontAwesomeModule],
   templateUrl: './attribute-editor.component.html',
-  styleUrl: './attribute-editor.component.css'
+  styleUrl: './attribute-editor.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AttributeEditorComponent {
   showPanel:boolean = false;
@@ -44,13 +45,15 @@ export class AttributeEditorComponent {
     private boardService: BoardService,
     private cdr: ChangeDetectorRef
   ) {
+
     this.boardService.onPanelPositionChange().subscribe((position:Point) => {
       this.panelPosition = position;
-      this.cdr.detectChanges();
+      this.cdr.markForCheck();
     });
     this.boardService.onPanelVisibilityChange().subscribe((visible: boolean) => {
+      
       this.showPanel = visible;
-      this.cdr.detectChanges();
+      this.cdr.markForCheck();
     });
     
   }

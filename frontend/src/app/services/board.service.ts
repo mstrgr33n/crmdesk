@@ -2,7 +2,7 @@ import { ElementRef, Injectable } from '@angular/core';
 import { Point } from '../shared/models/point.model';
 import { ToolbarService } from './toolbar.service';
 import { BoardState } from '../shared/models/boardstate.enum';
-import { dia, shapes, connectionStrategies, anchors } from '@joint/core';
+import { dia, shapes, connectionStrategies } from '@joint/core';
 import { v4 as uuidv4 } from 'uuid';
 import { JointTools } from '../shared/models/jointtool.model';
 import { SocketService } from './socket.service';
@@ -22,7 +22,7 @@ export class BoardService {
 
   constructor(
     private toolbarService: ToolbarService,
-    private socketService: SocketService
+    private socketService: SocketService,
   ) {
     this.toolbarService.getMode().subscribe(mode => {
       this.currentMode = mode;
@@ -30,16 +30,25 @@ export class BoardService {
   }
 
   initilizeBoard(boardId: ElementRef) {
-    this.graph.on('remove', (cell: dia.Cell) => {
+    this.graph.on('remove', () => {
       this.showAttributePanel.next(false);
     });
     this.paper = new dia.Paper({
       el: boardId.nativeElement,
-      width: window.innerWidth,
-      height: window.innerHeight,
-      drawGrid: { name: "dot" },
+      width: '100%',
+      height: '100%',
+      autoResizePaper: true,
+      borderless: true,
+      drawGrid: {
+        name: "dot",
+        args: {
+          color: '#aaa',
+          thickness: 1,
+          scaleFactor: 3,
+        }
+      },
       background: { color: "#F3F7F6" },
-      gridSize: 10,
+      gridSize: 5,
       step: 1,
       model: this.graph,
       cellViewNamespace: shapes,
@@ -51,7 +60,7 @@ export class BoardService {
           step: 10,
           endDirections: ["right", "left", "top", "bottom" ],
           startDirections: ["left", "right", "bottom", "top" ],
-          padding: { 
+          padding: {
             bottom: 20,
             top: 20,
             left: 20,
@@ -63,7 +72,7 @@ export class BoardService {
         name: "midSide",
         args: {
           name: "perpendicular",
-          args: { padding: 10}
+          args: { padding: 5}
         }
       },
       defaultConnector: {
@@ -86,12 +95,12 @@ export class BoardService {
       connectionStrategy: connectionStrategies.pinAbsolute
     });
 
-    this.initializeHandlers();
+    this.initializeHandlers(boardId);
   }
 
-  initializeHandlers() {
+  initializeHandlers(boardId: ElementRef) {
     const tools = this.tools.getJointTools()
-    this.paper.on('blank:pointerclick', (event: any, x: number, y: number) => {
+    this.paper.on('blank:pointerclick', (event: dia.Event, x: number, y: number) => {
       this.currentElement?.removeTools();
       this.currentElement = null;
       if(this.showAttributePanel.value) this.showAttributePanel.next(false);
@@ -103,12 +112,12 @@ export class BoardService {
     });
 
     this.paper.on('element:pointermove', (elementView, evt, x, y) => {
-      let bbox = elementView.getBBox().topLeft();
+      const bbox = elementView.getBBox().topLeft();
       this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
     });
 
     this.paper.on('element:pointerdown',  (elementView, evt, x, y) => {
-      let bbox = elementView.getBBox().topLeft();
+      const bbox = elementView.getBBox().topLeft();
       this.showAttributePanel.next(true);
       this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
     });
@@ -161,7 +170,48 @@ export class BoardService {
         textarea.focus();
         textarea.select();
       }
-    }); 
+    });
+
+    window.addEventListener('resize', () => {
+
+      this.paper.setDimensions(
+        boardId.nativeElement.clientWidth, 
+        boardId.nativeElement.clientHeight);
+    });
+
+    this.paperMovement();
+  }
+
+  paperMovement() {
+    
+    let isPanning = false;
+    let startX = 0;
+    let startY = 0;
+
+    this.paper.on('blank:pointerdown', (event: dia.Event) => {
+      isPanning = true;
+      startX = event.offsetX!;
+      startY = event.offsetY!;
+    });
+
+    this.paper.on('cell:pointerup blank:pointerup', () => {
+      isPanning = false;
+    });
+
+    this.paper.on('blank:pointermove', (event: dia.Event) => {
+      this.showAttributePanel.next(false);
+      this.currentElement?.removeTools();
+      if (isPanning) {
+        const dx = event.offsetX! - startX;
+        const dy = event.offsetY! - startY;
+
+        const translate = this.paper.translate();
+        this.paper.translate(translate.tx + dx, translate.ty + dy);
+
+        startX = event.offsetX!;
+        startY = event.offsetY!;
+      }
+    });
   }
 
   addShape(event: any, x: number, y: number) {
@@ -362,6 +412,12 @@ export class BoardService {
 
   onPanelVisibilityChange() {
     return this.showAttributePanel.asObservable();
+  }
+
+  exportToSVG(): void {
+    // Генерация SVG
+    var a = this.paper.svgElement;
+    debugger;
   }
 }
 

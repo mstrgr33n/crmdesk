@@ -1,6 +1,6 @@
 <div class="toolbar">
     @for (item of buttons; track item) {
-        <button (click)="setMode(item.mode)" [class.active]="currentMode === item.mode" class="tool">
+        <button (click)="item.click ? item.click() : setMode(item.mode)" [class.active]="currentMode === item.mode" class="tool" >
             <fa-icon [icon]="item.icon"></fa-icon>
         </button>
     }

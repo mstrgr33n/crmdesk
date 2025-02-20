@@ -4,5 +4,6 @@ export enum BoardState {
     Rectangle = 'rectangle',
     Ellipse = 'ellipse',
     Notes = 'notes',
-    Text = 'text'
+    Text = 'text',
+    Save = 'save',
 }
