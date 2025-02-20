@@ -2,7 +2,7 @@ import { ElementRef, Injectable } from '@angular/core';
 import { Point } from '../shared/models/point.model';
 import { ToolbarService } from './toolbar.service';
 import { BoardState } from '../shared/models/boardstate.enum';
-import { dia, shapes, connectionStrategies } from '@joint/core';
+import { dia, shapes, connectionStrategies, anchors } from '@joint/core';
 import { v4 as uuidv4 } from 'uuid';
 import { JointTools } from '../shared/models/jointtool.model';
 import { SocketService } from './socket.service';
@@ -59,6 +59,13 @@ export class BoardService {
           }
         }
       },
+      defaultAnchor: {
+        name: "midSide",
+        args: {
+          name: "perpendicular",
+          args: { padding: 10}
+        }
+      },
       defaultConnector: {
         name: "rounded"
       },
@@ -76,7 +83,7 @@ export class BoardService {
           },
         }
       }),
-      connectionStrategy: connectionStrategies.pinRelative
+      connectionStrategy: connectionStrategies.pinAbsolute
     });
 
     this.initializeHandlers();
