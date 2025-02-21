@@ -7,7 +7,9 @@ import { io, Socket } from 'socket.io-client';
 export class SocketService {
   private socket: Socket;
 
-  constructor() { }
+  constructor() {
+    console.log("SocketService initialized");
+  }
 
   initializeSocket(backendUrl:string):void {
     const socket: Socket = io(backendUrl, {
@@ -18,11 +20,11 @@ export class SocketService {
     this.socket = socket;
   }
 
-  on(event: string, callback: (data: any) => void): void {
+  on(event: string, callback: (data: unknown) => void): void {
     this.socket.on(event, callback);
   }
 
-  emit(event: string, data: any): void {
+  emit(event: string, data: unknown): void {
     this.socket.emit(event, data);
   }
 
