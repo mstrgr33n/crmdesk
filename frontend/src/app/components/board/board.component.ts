@@ -200,8 +200,8 @@ export class BoardComponent implements AfterViewInit, OnChanges {
   }
 
   initializeSocketConnection(url: string, roomId: string) {
-    //this.socketService.initializeSocket(url);
-    // this.boardService.initializeSocketHadler(roomId);
+    this.socketService.initializeSocket(url);
+    this.boardService.initializeSocketHadler(roomId);
   }
 
 }

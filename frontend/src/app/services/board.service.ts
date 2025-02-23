@@ -13,9 +13,9 @@ import { BehaviorSubject } from 'rxjs';
 })
 export class BoardService {
   private showAttributePanel = new BehaviorSubject<boolean>(false);
-  private positionAttributePanel = new BehaviorSubject<Point>({x: 0, y: 0});
+  private positionAttributePanel = new BehaviorSubject<Point>({ x: 0, y: 0 });
   private currentMode: BoardState | null = BoardState.Select;
-  private graph = new dia.Graph({}, { cellNamespace: shapes,});
+  private graph = new dia.Graph({}, { cellNamespace: shapes, });
   private paper!: dia.Paper;
   private tools = new JointTools();
   private currentElement: dia.ElementView | null = null;
@@ -30,9 +30,12 @@ export class BoardService {
   }
 
   initilizeBoard(boardId: ElementRef) {
-    this.graph.on('remove', () => {
+    this.graph.on('remove', (elementView) => {
+  
       this.showAttributePanel.next(false);
+      this.socketService.emit('deleteObject', elementView.id);
     });
+    
     this.paper = new dia.Paper({
       el: boardId.nativeElement,
       width: '100%',
@@ -58,8 +61,8 @@ export class BoardService {
         name: "manhattan",
         args: {
           step: 10,
-          endDirections: ["right", "left", "top", "bottom" ],
-          startDirections: ["left", "right", "bottom", "top" ],
+          endDirections: ["right", "left", "top", "bottom"],
+          startDirections: ["left", "right", "bottom", "top"],
           padding: {
             bottom: 20,
             top: 20,
@@ -72,7 +75,7 @@ export class BoardService {
         name: "midSide",
         args: {
           name: "perpendicular",
-          args: { padding: 5}
+          args: { padding: 5 }
         }
       },
       defaultConnector: {
@@ -96,30 +99,41 @@ export class BoardService {
     });
 
     this.initializeHandlers(boardId);
+
   }
 
   initializeHandlers(boardId: ElementRef) {
     const tools = this.tools.getJointTools()
     this.paper.on('blank:pointerclick', (event: dia.Event, x: number, y: number) => {
-      this.currentElement?.removeTools();
+      if (this.currentElement) {
+        this.currentElement.removeTools();
+        this.socketService.emit('unlockObject', { id: this.currentElement.model.id });
+      }
       this.currentElement = null;
-      if(this.showAttributePanel.value) this.showAttributePanel.next(false);
+      if (this.showAttributePanel.value) this.showAttributePanel.next(false);
       this.addShape(event, x, y);
-    } );
+    });
     this.paper.on('element:pointerclick', elementView => {
+      if (this.currentElement) {
+        this.socketService.emit('unlockObject', { id: this.currentElement.model.id });
+      }
       this.currentElement = elementView;
       elementView.addTools(tools.LinkTools);
     });
 
     this.paper.on('element:pointermove', (elementView, evt, x, y) => {
+      this.socketService.emit('updateObject', elementView.model);
       const bbox = elementView.getBBox().topLeft();
       this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
     });
 
-    this.paper.on('element:pointerdown',  (elementView, evt, x, y) => {
+    this.paper.on('element:pointerdown', (elementView, evt, x, y) => {
       const bbox = elementView.getBBox().topLeft();
       this.showAttributePanel.next(true);
       this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
+      if (this.currentElement && this.currentElement !== elementView) {
+        this.socketService.emit('lockObject', { id: this.currentElement.model.id });
+      }
     });
 
     this.paper.on('link:mouseenter', function (linkView: dia.LinkView) {
@@ -175,15 +189,35 @@ export class BoardService {
     window.addEventListener('resize', () => {
 
       this.paper.setDimensions(
-        boardId.nativeElement.clientWidth, 
+        boardId.nativeElement.clientWidth,
         boardId.nativeElement.clientHeight);
+    });
+
+    this.paper.on('element:change:position', (elementView) => {
+      const model = elementView.model;
+      const position = model.get('position');
+      const size = model.get('size');
+      
+      this.socketService.emit('updateObject', {
+        id: model.id,
+        data: {
+          position: position,
+          size: size,
+          type: model.get('type')
+        }
+      });
+    });
+
+    this.paper.on('transition:end', (elementView, evt, x, y) => {
+      const bbox = elementView.getBBox().topLeft();
+      this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
     });
 
     this.paperMovement();
   }
 
   paperMovement() {
-    
+
     let isPanning = false;
     let startX = 0;
     let startY = 0;
@@ -214,7 +248,7 @@ export class BoardService {
     });
   }
 
-  addShape(event: unknown, x: number, y: number) {
+  addShape(event: any, x: number, y: number) {
     this.createShape({ x, y });
   }
 
@@ -244,7 +278,7 @@ export class BoardService {
       attrs: {
         body: {
           fill: 'none',
-          stroke:'none'
+          stroke: 'none'
         },
         label: { text: 'Double-click to edit', style: { fontSize: 14, fill: 'black' } },
       },
@@ -336,72 +370,79 @@ export class BoardService {
       },
     });
     this.graph.addCell(notes);
-    // this.socketService.emit('createObject', notes);
+    this.socketService.emit('createObject', notes);
   }
 
   public initializeSocketHadler(roomId: string) {
-    this.socketService.on('initialState', (objects: unknown[]) => {
-      objects.forEach((obj) => {
-        const element = this.createJointElement(obj);
-        this.graph.addCell(element);
-      });
+    this.socketService.on('initialState', (objects: unknown) => {
+      if (objects instanceof Array) {
+        objects.forEach((obj) => {
+          const element = this.createJointElement(obj);
+          this.graph.addCell(element);
+        });
+      }
     });
 
-    this.socketService.on('objectCreated', (obj: unknown) => {
+    this.socketService.on('objectCreated', (obj: any) => {
       const element = this.createJointElement(obj);
       this.graph.addCell(element);
     });
 
-    this.socketService.on('objectUpdated', (data: unknown) => {
+    this.socketService.on('objectUpdated', (data: any) => {
       const cell = this.graph.getCell(data.id);
       if (cell) {
-        cell.set('position', data.data.position);
-        cell.set('size', data.data.size);
+        cell.set('position', data.position);
+        cell.set('size', data.size);
       }
     });
 
-    this.socketService.on('objectLocked', ({ id, lockedBy }: { id: string; lockedBy: string }) => {
-      const cell = this.graph.getCell(id);
-      if (cell) {
-        cell.attr({ body: { fill: 'lightgray' } });
+    this.socketService.on('objectLocked', (data: any) => {
+      if (data.id) {
+        const cell = this.graph.getCell(data.id);
+        if (cell) {
+          cell.attr({ body: { fill: 'lightgray' } });
+        }
       }
     });
 
-    this.socketService.on('objectUnlocked', ({ id }: { id: string }) => {
-      const cell = this.graph.getCell(id);
-      if (cell) {
-        cell.attr({ body: { fill: 'white' } });
+    this.socketService.on('objectUnlocked', (data: any) => {
+      if (data.id) {
+        const cell = this.graph.getCell(data.id);
+        if (cell) {
+          cell.attr({ body: { fill: 'white' } });
+        }
       }
     });
-
+    const rndInt = Math.floor(Math.random() * 100) + 1
     // Join a room
-    this.socketService.emit('joinRoom', { roomId: roomId, userName: 'User1' });
+    this.socketService.emit('joinRoom', { roomId: roomId, userName: 'User' + rndInt });
+
+    this.socketService.on('objectDeleted', (data: any) => {
+      const cell = this.graph.getCell(data.id);
+      if (cell) {
+        cell.remove({ disconnectLinks: true });
+      }
+    });
+  
+    this.socketService.on('objectUpdated', (data: any) => {
+      const cell = this.graph.getCell(data.id);
+      if (cell) {
+        cell.set('position', data.data.position, { silent: true });
+        cell.set('size', data.data.size, { silent: true });
+      }
+    });
   }
 
-  createJointElement(obj: unknown): unknown  {
+  createJointElement(obj: any): any {
     switch (obj.type) {
       case 'standard.Rectangle':
-        return new shapes.standard.Rectangle({
-          id: obj.id,
-          position: obj.data.position,
-          size: obj.data.size,
-          attrs: {
-            body: { fill: 'white' },
-            label: { text: obj.data.label || '' },
-          },
-        });
+        return new shapes.standard.Rectangle(obj.data);
       case 'standard.Circle':
-        return new shapes.standard.Circle({
-          id: obj.id,
-          position: obj.data.position,
-          size: obj.data.size,
-          attrs: {
-            body: { fill: 'white' },
-            label: { text: obj.data.label || '' },
-          },
-        });
+        return new shapes.standard.Circle(obj.data);
       case "standard.HeaderedRectangle":
-        return new shapes.standard.HeaderedRectangle(obj.data);
+        const hr = new shapes.standard.HeaderedRectangle(obj.data);
+        hr.set('id', obj.id);
+        return hr;
       default:
         return null;
     }
@@ -416,8 +457,7 @@ export class BoardService {
   }
 
   exportToSVG(): void {
-    // Генерация SVG
-    var a = this.paper.svgElement;
+    var a = this.paper.svg;
     debugger;
   }
 }

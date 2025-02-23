@@ -80,28 +80,45 @@ async function startServer() {
 
             // Handle object creation
             socket.on('createObject', async (data) => {
-                const object = await ObjectModel.create({
-                    id: data.id,
-                    room_id: roomId,
-                    type: data.type,
-                    data: data,
-                });
-                object.changed('data', true);
-                await object.save();
-                await redisClient.set(`lock:${data.id}`, userName, { EX: 60 * 5 });
-                io.to(roomId).emit('objectCreated', object);
+                try {
+                    const object = await ObjectModel.create({
+                        id: data.id,
+                        room_id: roomId,
+                        type: data.type,
+                        data: data,
+                    });
+                    object.changed('data', true);
+                    await object.save();
+                    await redisClient.set(`lock:${data.id}`, userName, { EX: 60 * 5 });
+                    io.to(roomId).emit('objectCreated', object);
+                } catch (error) {
+                    console.error(error);
+                }
             });
 
             // Handle object update
             socket.on('updateObject', async (data) => {
-                const object = await ObjectModel.update(
-                    { data: data.data },
-                    { where: { id: data.id, room_id: roomId } }
-                );
-                object.changed('data', true);
-                await object.save();
-                await redisClient.set(`lock:${data.id}`, userName, { EX: 60 * 5 });
-                io.to(roomId).emit('objectUpdated', data);
+                try {
+                    const element = await ObjectModel.findByPk(data.id).then(
+                        el => {
+                            el.set('data', data);
+                            el.changed('data', true);
+                            el.save();
+                        }
+                    );
+
+                    // Update cache
+                    if (cache[roomId]) {
+                        const objectIndex = cache[roomId].findIndex(obj => obj.id === data.id);
+                        if (objectIndex !== -1) {
+                            cache[roomId][objectIndex].data = data.data;
+                        }
+                    }
+                    
+                    io.to(roomId).emit('objectUpdated', data);
+                } catch (error) {
+                    console.error('Error updating object:', error);
+                }
             });
 
             // Handle object lock/unlock
@@ -113,6 +130,27 @@ async function startServer() {
             socket.on('unlockObject', async (objectId) => {
                 await redisClient.del(`lock:${objectId}`);
                 io.to(roomId).emit('objectUnlocked', { id: objectId });
+            });
+
+            socket.on('deleteObject', async (objectId) => {
+                try {
+                    const model =await ObjectModel.findAll({ 
+                        where: { id: objectId, room_id: roomId } 
+                    });
+                    if (model.length === 1) {
+                        await model[0].destroy();
+                    }
+                    
+                    // Update cache
+                    if (cache[roomId]) {
+                        cache[roomId] = cache[roomId].filter(obj => obj.id !== objectId);
+                    }
+                    
+                    await redisClient.del(`lock:${objectId}`);
+                    io.to(roomId).emit('objectDeleted', { id: objectId });
+                } catch (error) {
+                    console.error('Error deleting object:', error);
+                }
             });
 
             // Handle sending messages
@@ -161,9 +199,6 @@ async function startServer() {
  * @returns {Promise<Object[]>} - The objects for the specified room ID.
  */
 async function getCachedObjects(roomId) {
-    if (cache[roomId]) {
-        return cache[roomId];
-    }
     const objects = await ObjectModel.findAll({ where: { room_id: roomId } });
     cache[roomId] = objects;
     return objects;

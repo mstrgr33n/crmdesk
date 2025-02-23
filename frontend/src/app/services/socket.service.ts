@@ -25,10 +25,12 @@ export class SocketService {
   }
 
   emit(event: string, data: unknown): void {
+    if (!this.socket) return;
     this.socket.emit(event, data);
   }
 
   disconnect(): void {
+    if (!this.socket) return;
     this.socket.disconnect();
   }
 

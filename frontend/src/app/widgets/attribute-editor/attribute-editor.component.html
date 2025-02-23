@@ -5,5 +5,6 @@
         <fa-icon [icon]="item.icon"></fa-icon>
     </button>
     }
+    <input type="color" [value]="currentColor" (input)="handleColorPickerChange($event)" class="color-picker">
 </div>
 }
