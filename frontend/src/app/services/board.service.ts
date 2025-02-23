@@ -132,10 +132,10 @@ export class BoardService {
 
     this.paper.on('cell:pointerdblclick', function (cellView, evt, x, y) {
       const cell = cellView.model; // Получаем модель ячейки
-      const labels: any = cell?.attributes?.attrs;// Получаем метки ячейки, если они естьlabel; // Получаем текущие метки
+      const labels: dia.Cell.Selectors | undefined = cell?.attributes?.attrs;// Получаем метки ячейки, если они естьlabel; // Получаем текущие метки
 
-      if (labels && labels.label) {
-        const labelText = labels.label.text; // Текущий текст метки
+      if (labels && labels['labels']) {
+        const labelText = labels['labels'].text!; // Текущий текст метки
         // Создаем textarea для редактирования
         const textarea = document.createElement('textarea');
         textarea.value = labelText;
@@ -214,7 +214,7 @@ export class BoardService {
     });
   }
 
-  addShape(event: any, x: number, y: number) {
+  addShape(event: unknown, x: number, y: number) {
     this.createShape({ x, y });
   }
 
@@ -279,6 +279,7 @@ export class BoardService {
   }
 
   createEllipse(position: Point) {
+    console.log(position);
     // Создание эллипса
   }
   createCircle(position: Point) {
@@ -339,19 +340,19 @@ export class BoardService {
   }
 
   public initializeSocketHadler(roomId: string) {
-    this.socketService.on('initialState', (objects: any[]) => {
+    this.socketService.on('initialState', (objects: unknown[]) => {
       objects.forEach((obj) => {
         const element = this.createJointElement(obj);
         this.graph.addCell(element);
       });
     });
 
-    this.socketService.on('objectCreated', (obj: any) => {
+    this.socketService.on('objectCreated', (obj: unknown) => {
       const element = this.createJointElement(obj);
       this.graph.addCell(element);
     });
 
-    this.socketService.on('objectUpdated', (data: any) => {
+    this.socketService.on('objectUpdated', (data: unknown) => {
       const cell = this.graph.getCell(data.id);
       if (cell) {
         cell.set('position', data.data.position);
@@ -377,7 +378,7 @@ export class BoardService {
     this.socketService.emit('joinRoom', { roomId: roomId, userName: 'User1' });
   }
 
-  createJointElement(obj: any): any  {
+  createJointElement(obj: unknown): unknown  {
     switch (obj.type) {
       case 'standard.Rectangle':
         return new shapes.standard.Rectangle({
