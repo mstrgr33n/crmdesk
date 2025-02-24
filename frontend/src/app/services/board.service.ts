@@ -2,11 +2,12 @@ import { ElementRef, Injectable } from '@angular/core';
 import { Point } from '../shared/models/point.model';
 import { ToolbarService } from './toolbar.service';
 import { BoardState } from '../shared/models/boardstate.enum';
-import { dia, shapes, connectionStrategies } from '@joint/core';
-import { v4 as uuidv4 } from 'uuid';
+import { dia, shapes } from '@joint/core';
 import { JointTools } from '../shared/models/jointtool.model';
 import { SocketService } from './socket.service';
 import { BehaviorSubject } from 'rxjs';
+import { paperConfig } from '../shared/configs/paper.config';
+import { ShapesHelper } from '../shared/models/shape-helper';
 
 @Injectable({
   providedIn: 'root'
@@ -14,7 +15,7 @@ import { BehaviorSubject } from 'rxjs';
 export class BoardService {
   private showAttributePanel = new BehaviorSubject<boolean>(false);
   private positionAttributePanel = new BehaviorSubject<Point>({ x: 0, y: 0 });
-  private currentMode: BoardState | null = BoardState.Select;
+  private currentMode: BoardState = BoardState.Select;
   private graph = new dia.Graph({}, { cellNamespace: shapes, });
   private paper!: dia.Paper;
   private tools = new JointTools();
@@ -31,72 +32,15 @@ export class BoardService {
 
   initilizeBoard(boardId: ElementRef) {
     this.graph.on('remove', (elementView) => {
-  
+
       this.showAttributePanel.next(false);
       this.socketService.emit('deleteObject', elementView.id);
     });
-    
-    this.paper = new dia.Paper({
-      el: boardId.nativeElement,
-      width: '100%',
-      height: '100%',
-      autoResizePaper: true,
-      borderless: true,
-      drawGrid: {
-        name: "dot",
-        args: {
-          color: '#aaa',
-          thickness: 1,
-          scaleFactor: 3,
-        }
-      },
-      background: { color: "#F3F7F6" },
-      gridSize: 5,
-      step: 1,
-      model: this.graph,
-      cellViewNamespace: shapes,
-      async: true,
-      interactive: true,
-      defaultRouter: {
-        name: "manhattan",
-        args: {
-          step: 10,
-          endDirections: ["right", "left", "top", "bottom"],
-          startDirections: ["left", "right", "bottom", "top"],
-          padding: {
-            bottom: 20,
-            top: 20,
-            left: 20,
-            right: 20
-          }
-        }
-      },
-      defaultAnchor: {
-        name: "midSide",
-        args: {
-          name: "perpendicular",
-          args: { padding: 5 }
-        }
-      },
-      defaultConnector: {
-        name: "rounded"
-      },
-      clickThreshold: 10,
-      defaultLink: () => new shapes.standard.Link({
-        attrs: {
-          line: {
-            stroke: "#000000",
-            strokeWidth: 2,
-            targetMarker: {
-              shape: "square",
-              radius: 1,
-              fill: "#red"
-            },
-          },
-        }
-      }),
-      connectionStrategy: connectionStrategies.pinAbsolute
-    });
+
+    paperConfig.model = this.graph;
+    paperConfig.el = boardId.nativeElement;
+
+    this.paper = new dia.Paper(paperConfig);
 
     this.initializeHandlers(boardId);
 
@@ -197,7 +141,7 @@ export class BoardService {
       const model = elementView.model;
       const position = model.get('position');
       const size = model.get('size');
-      
+
       this.socketService.emit('updateObject', {
         id: model.id,
         data: {
@@ -211,6 +155,17 @@ export class BoardService {
     this.paper.on('transition:end', (elementView, evt, x, y) => {
       const bbox = elementView.getBBox().topLeft();
       this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
+    });
+
+    this.graph.on('change:source change:target', (link) => {
+      if (link.get('source').id && link.get('target').id) {
+        debugger;
+      }
+
+    });
+
+    this.graph.on('change:vertices', (link) => {
+      debugger;
     });
 
     this.paperMovement();
@@ -252,140 +207,41 @@ export class BoardService {
     this.createShape({ x, y });
   }
 
-  createShape(position: Point): void {
-    switch (this.currentMode) {
-      case BoardState.Text:
-        this.createText(position);
-        break;
-      case BoardState.Ellipse:
-        this.createCircle(position);
-        break;
-      case BoardState.Rectangle:
-        this.createRectangle(position);
-        break;
-      case BoardState.Notes:
-        this.createNotes(position);
-        break;
-      default:
-        break;
+  createShape(position: Point, emitEvent: boolean = true, element: any | null = null): void {
+    const shapes: any = {
+      [BoardState.Text]: () => ShapesHelper.createText(position, element),
+      [BoardState.Ellipse]: () => ShapesHelper.createEllipse(position, element),
+      [BoardState.Rectangle]: () => ShapesHelper.createRectangle(position, element),
+      [BoardState.Notes]: () => ShapesHelper.createNotes(position, element),
+      [BoardState.Circle]: () => ShapesHelper.createCircle(position, element),
+      [BoardState.Select]:  null,
+      [BoardState.Save]: null,
+    };
+
+    const createSelectedShape = element ? shapes[element.type] : shapes[this.currentMode];
+    if (createSelectedShape) {
+      const shape = createSelectedShape();
+      this.graph.addCell(shape);
+      if (emitEvent) {
+        this.socketService.emit('createObject', shape);
+      }
     }
   }
-  createText(position: Point) {
-    const cilinder = new shapes.standard.TextBlock({
-      id: uuidv4(),
-      position: { x: position.x, y: position.y },
-      size: { width: 160, height: 60 },
-      attrs: {
-        body: {
-          fill: 'none',
-          stroke: 'none'
-        },
-        label: { text: 'Double-click to edit', style: { fontSize: 14, fill: 'black' } },
-      },
-    });
 
-    this.graph.addCell(cilinder);
-  }
 
-  createRectangle(position: Point) {
-    const rect = new shapes.standard.Rectangle({
-      id: uuidv4(),
-      position: { x: position.x, y: position.y },
-      size: { width: 160, height: 60 },
-      attrs: {
-        body: {
-          stroke: '',
-          strokeWidth: 0,
-          filter: {
-            name: 'dropShadow',
-            args: {
-              dx: 3,
-              dy: 3,
-              blur: 5
-            }
-          }
-        },
-        label: { text: 'Double-click to edit', style: { fontSize: 14, fill: 'black' } },
-      },
-    });
-    this.graph.addCell(rect);
-
-  }
-
-  createEllipse(position: Point) {
-    console.log(position);
-    // Создание эллипса
-  }
-  createCircle(position: Point) {
-    const circle = new shapes.standard.Circle({
-      id: uuidv4(),
-      position: { x: position.x, y: position.y },
-      size: { width: 150, height: 150 },
-      //radius: 150,
-      attrs: {
-        body: {
-          fill: '#fff',
-          stroke: '',
-          strokeWidth: 1,
-          filter: {
-            name: 'highlight',
-            args: {
-              color: 'grey',
-              width: 2,
-              opacity: 0.5,
-              blur: 5
-            }
-          },
-        },
-        label: { text: 'Double-click to edit', fontSize: 14, fill: 'black' }
-      },
-    });
-    this.graph.addCell(circle);
-  }
-
-  createNotes(position: Point) {
-    const notes = new shapes.standard.HeaderedRectangle({
-      id: uuidv4(),
-      position: { x: position.x, y: position.y },
-      size: { width: 200, height: 100 },
-      attrs: {
-        body: {
-          fill: '#fff',
-          stroke: '',
-          strokeWidth: 1,
-          filter: {
-            name: 'dropShadow',
-            args: {
-              dx: 3,
-              dy: 3,
-              blur: 5
-            }
-          }
-        },
-        header: {
-          strokeWidth: 1
-        },
-        headerText: { text: 'Double-click to edit', fontSize: 14, fill: 'black' },
-        bodyText: { text: 'Double-click to edit', fontSize: 14, fill: 'black' },
-      },
-    });
-    this.graph.addCell(notes);
-    this.socketService.emit('createObject', notes);
-  }
 
   public initializeSocketHadler(roomId: string) {
     this.socketService.on('initialState', (objects: unknown) => {
       if (objects instanceof Array) {
         objects.forEach((obj) => {
-          const element = this.createJointElement(obj);
-          this.graph.addCell(element);
+          console.log(obj);
+          const element = this.createShape(obj.data.position, false, obj);
         });
       }
     });
 
     this.socketService.on('objectCreated', (obj: any) => {
-      const element = this.createJointElement(obj);
-      this.graph.addCell(element);
+      const element =this.createShape(obj.data.position, false, obj);
     });
 
     this.socketService.on('objectUpdated', (data: any) => {
@@ -423,29 +279,8 @@ export class BoardService {
         cell.remove({ disconnectLinks: true });
       }
     });
-  
-    this.socketService.on('objectUpdated', (data: any) => {
-      const cell = this.graph.getCell(data.id);
-      if (cell) {
-        cell.set('position', data.data.position, { silent: true });
-        cell.set('size', data.data.size, { silent: true });
-      }
-    });
-  }
 
-  createJointElement(obj: any): any {
-    switch (obj.type) {
-      case 'standard.Rectangle':
-        return new shapes.standard.Rectangle(obj.data);
-      case 'standard.Circle':
-        return new shapes.standard.Circle(obj.data);
-      case "standard.HeaderedRectangle":
-        const hr = new shapes.standard.HeaderedRectangle(obj.data);
-        hr.set('id', obj.id);
-        return hr;
-      default:
-        return null;
-    }
+    
   }
 
   onPanelPositionChange() {
@@ -458,7 +293,6 @@ export class BoardService {
 
   exportToSVG(): void {
     var a = this.paper.svg;
-    debugger;
   }
 }
 

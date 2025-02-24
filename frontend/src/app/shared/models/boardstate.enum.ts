@@ -1,9 +1,10 @@
 export enum BoardState {
     Select = 'select',
     Draw = 'draw',
-    Rectangle = 'rectangle',
-    Ellipse = 'ellipse',
-    Notes = 'notes',
-    Text = 'text',
+    Rectangle = 'standard.Rectangle',
+    Circle = 'standard.Circle',
+    Ellipse = 'standard.Ellipse',
+    Notes = 'standard.HeaderedRectangle',
+    Text = 'standard.TextBlock',
     Save = 'save',
 }
