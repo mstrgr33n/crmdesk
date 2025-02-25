@@ -65,13 +65,13 @@ export class BoardService {
       elementView.addTools(tools.LinkTools);
     });
 
-    this.paper.on('element:pointermove', (elementView, evt, x, y) => {
+    this.paper.on('element:pointermove', (elementView) => {
       this.socketService.emit('updateObject', elementView.model);
       const bbox = elementView.getBBox().topLeft();
       this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
     });
 
-    this.paper.on('element:pointerdown', (elementView, evt, x, y) => {
+    this.paper.on('element:pointerdown', (elementView) => {
       const bbox = elementView.getBBox().topLeft();
       this.showAttributePanel.next(true);
       this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
@@ -152,20 +152,22 @@ export class BoardService {
       });
     });
 
-    this.paper.on('transition:end', (elementView, evt, x, y) => {
+    this.paper.on('transition:end', (elementView) => {
       const bbox = elementView.getBBox().topLeft();
       this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
     });
 
     this.graph.on('change:source change:target', (link) => {
       if (link.get('source').id && link.get('target').id) {
-        debugger;
+        //TODO sync links by socketio
       }
 
     });
 
     this.graph.on('change:vertices', (link) => {
-      debugger;
+      if (link){
+        //TODO sync links on change links;
+      }
     });
 
     this.paperMovement();
@@ -279,8 +281,6 @@ export class BoardService {
         cell.remove({ disconnectLinks: true });
       }
     });
-
-    
   }
 
   onPanelPositionChange() {

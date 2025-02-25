@@ -22,13 +22,27 @@ const { Server } = require('socket.io');
 const { Room, ObjectModel, Message, sequelize } = require('./models');
 const { v4: uuidv4 } = require('uuid');
 const Redis = require('redis');
+const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
+
+const corsOptions = {
+    origin: 'http://localhost:4200',
+    methods: ['GET', 'POST'],
+    credentials: false
+};
+
+app.use(cors(corsOptions));
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: '*',
+        origin: 'http://localhost:4200',
+        allowedHeaders: ["*"],
+        transports: ['websocket', 'pooling'],
+        methods: ['GET', 'POST'],
+        credentials: false
     },
 });
 
