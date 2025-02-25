@@ -7,4 +7,5 @@ export enum BoardState {
     Notes = 'standard.HeaderedRectangle',
     Text = 'standard.TextBlock',
     Save = 'save',
+    Link = 'standard.Link',
 }

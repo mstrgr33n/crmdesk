@@ -118,4 +118,10 @@ export class ShapesHelper {
         }
         return ellipse;
     }
+
+  static createLink(element: any) {
+    const link = new shapes.standard.Link(element.data);
+    link.id = element.id;
+    return link;
+  }
 }

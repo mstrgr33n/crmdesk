@@ -159,14 +159,14 @@ export class BoardService {
 
     this.graph.on('change:source change:target', (link) => {
       if (link.get('source').id && link.get('target').id) {
-        //TODO sync links by socketio
+        this.socketService.emit('createLink', link);
       }
 
     });
 
     this.graph.on('change:vertices', (link) => {
       if (link){
-        //TODO sync links on change links;
+        this.socketService.emit('updateObject', link);
       }
     });
 
@@ -216,6 +216,7 @@ export class BoardService {
       [BoardState.Rectangle]: () => ShapesHelper.createRectangle(position, element),
       [BoardState.Notes]: () => ShapesHelper.createNotes(position, element),
       [BoardState.Circle]: () => ShapesHelper.createCircle(position, element),
+      [BoardState.Link]: () => ShapesHelper.createLink(element),
       [BoardState.Select]:  null,
       [BoardState.Save]: null,
     };

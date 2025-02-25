@@ -28,22 +28,22 @@ require('dotenv').config();
 const app = express();
 
 const corsOptions = {
-    origin: 'http://localhost:4200',
-    methods: ['GET', 'POST'],
-    credentials: false
+  origin: 'http://localhost:4200',
+  methods: ['GET', 'POST'],
+  credentials: false
 };
 
 app.use(cors(corsOptions));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: {
-        origin: 'http://localhost:4200',
-        allowedHeaders: ["*"],
-        transports: ['websocket', 'pooling'],
-        methods: ['GET', 'POST'],
-        credentials: false
-    },
+  cors: {
+    origin: 'http://localhost:4200',
+    allowedHeaders: ["*"],
+    transports: ['websocket', 'pooling'],
+    methods: ['GET', 'POST'],
+    credentials: false
+  },
 });
 
 // Middleware for parsing JSON bodies
@@ -51,7 +51,7 @@ app.use(express.json());
 
 // Connect to Redis
 const redisClient = Redis.createClient({
-    url: process.env.REDIS_URL,
+  url: process.env.REDIS_URL,
 });
 
 const cache = {};
@@ -69,136 +69,152 @@ redisClient.on('error', (err) => console.log('Redis Client Error', err));
  */
 async function startServer() {
 
-    await redisClient.connect();
+  await redisClient.connect();
 
-    io.on('connection', async (socket) => {
-        console.log('a user connected');
+  io.on('connection', async (socket) => {
+    console.log('a user connected');
 
-        socket.on('joinRoom', async ({ roomId, userName }) => {
-            let room = await Room.findByPk(roomId);
+    socket.on('joinRoom', async ({ roomId, userName }) => {
+      let room = await Room.findByPk(roomId);
 
-            if (!room) {
-                // Create the room if it doesn't exist
-                room = await Room.create({ id: roomId, name: `Room ${roomId}` });
-                console.log(`Room ${roomId} created`);
+      if (!room) {
+        // Create the room if it doesn't exist
+        room = await Room.create({ id: roomId, name: `Room ${roomId}` });
+        console.log(`Room ${roomId} created`);
+      }
+
+      socket.join(roomId);
+
+      // Fetch and send initial state of the room
+      const objects = await getCachedObjects(roomId);
+      socket.emit('initialState', objects);
+
+      // Notify other users that a new user has joined
+      io.to(roomId).emit('userJoined', { userName });
+
+      // Handle object creation
+      socket.on('createObject', async (data) => {
+        try {
+          const object = await ObjectModel.create({
+            id: data.id,
+            room_id: roomId,
+            type: data.type,
+            data: data,
+          });
+          object.changed('data', true);
+          await object.save();
+          await redisClient.set(`lock:${data.id}`, userName, { EX: 60 * 5 });
+          io.to(roomId).emit('objectCreated', object);
+        } catch (error) {
+          console.error(error);
+        }
+      });
+
+      socket.on('createLink', async (data)=> {
+        try {
+          const object = await ObjectModel.create({
+            id: data.id,
+            room_id: roomId,
+            type: data.type,
+            data: data,
+          });
+          object.changed('data',true);
+          await object.save();
+          io.to(roomId).emit('linkCreated', object);
+        } catch (error) {
+          console.error(error);
+        }
+      });
+
+      // Handle object update
+      socket.on('updateObject', async (data) => {
+        try {
+          const element = await ObjectModel.findByPk(data.id).then(
+            el => {
+              el.set('data', data);
+              el.changed('data', true);
+              el.save();
             }
+          );
 
-            socket.join(roomId);
+          // Update cache
+          if (cache[roomId]) {
+            const objectIndex = cache[roomId].findIndex(obj => obj.id === data.id);
+            if (objectIndex !== -1) {
+              cache[roomId][objectIndex].data = data.data;
+            }
+          }
 
-            // Fetch and send initial state of the room
-            const objects = await getCachedObjects(roomId);
-            socket.emit('initialState', objects);
+          io.to(roomId).emit('objectUpdated', data);
+        } catch (error) {
+          console.error('Error updating object:', error);
+        }
+      });
 
-            // Notify other users that a new user has joined
-            io.to(roomId).emit('userJoined', { userName });
+      // Handle object lock/unlock
+      socket.on('lockObject', async (objectId) => {
+        await redisClient.set(`lock:${objectId}`, userName, { EX: 60 * 5 });
+        io.to(roomId).emit('objectLocked', { id: objectId, lockedBy: userName });
+      });
 
-            // Handle object creation
-            socket.on('createObject', async (data) => {
-                try {
-                    const object = await ObjectModel.create({
-                        id: data.id,
-                        room_id: roomId,
-                        type: data.type,
-                        data: data,
-                    });
-                    object.changed('data', true);
-                    await object.save();
-                    await redisClient.set(`lock:${data.id}`, userName, { EX: 60 * 5 });
-                    io.to(roomId).emit('objectCreated', object);
-                } catch (error) {
-                    console.error(error);
-                }
-            });
+      socket.on('unlockObject', async (objectId) => {
+        await redisClient.del(`lock:${objectId}`);
+        io.to(roomId).emit('objectUnlocked', { id: objectId });
+      });
 
-            // Handle object update
-            socket.on('updateObject', async (data) => {
-                try {
-                    const element = await ObjectModel.findByPk(data.id).then(
-                        el => {
-                            el.set('data', data);
-                            el.changed('data', true);
-                            el.save();
-                        }
-                    );
+      socket.on('deleteObject', async (objectId) => {
+        try {
+          const model = await ObjectModel.findAll({
+            where: { id: objectId, room_id: roomId }
+          });
+          if (model.length === 1) {
+            await model[0].destroy();
+          }
 
-                    // Update cache
-                    if (cache[roomId]) {
-                        const objectIndex = cache[roomId].findIndex(obj => obj.id === data.id);
-                        if (objectIndex !== -1) {
-                            cache[roomId][objectIndex].data = data.data;
-                        }
-                    }
-                    
-                    io.to(roomId).emit('objectUpdated', data);
-                } catch (error) {
-                    console.error('Error updating object:', error);
-                }
-            });
+          // Update cache
+          if (cache[roomId]) {
+            cache[roomId] = cache[roomId].filter(obj => obj.id !== objectId);
+          }
 
-            // Handle object lock/unlock
-            socket.on('lockObject', async (objectId) => {
-                await redisClient.set(`lock:${objectId}`, userName, { EX: 60 * 5 });
-                io.to(roomId).emit('objectLocked', { id: objectId, lockedBy: userName });
-            });
+          await redisClient.del(`lock:${objectId}`);
+          io.to(roomId).emit('objectDeleted', { id: objectId });
+        } catch (error) {
+          console.error('Error deleting object:', error);
+        }
+      });
 
-            socket.on('unlockObject', async (objectId) => {
-                await redisClient.del(`lock:${objectId}`);
-                io.to(roomId).emit('objectUnlocked', { id: objectId });
-            });
-
-            socket.on('deleteObject', async (objectId) => {
-                try {
-                    const model =await ObjectModel.findAll({ 
-                        where: { id: objectId, room_id: roomId } 
-                    });
-                    if (model.length === 1) {
-                        await model[0].destroy();
-                    }
-                    
-                    // Update cache
-                    if (cache[roomId]) {
-                        cache[roomId] = cache[roomId].filter(obj => obj.id !== objectId);
-                    }
-                    
-                    await redisClient.del(`lock:${objectId}`);
-                    io.to(roomId).emit('objectDeleted', { id: objectId });
-                } catch (error) {
-                    console.error('Error deleting object:', error);
-                }
-            });
-
-            // Handle sending messages
-            socket.on('sendMessage', async (message) => {
-                const newMessage = await Message.create({
-                    room_id: roomId,
-                    user_name: userName,
-                    message,
-                });
-                io.to(roomId).emit('newMessage', { userName, message });
-            });
-
-            // Handle disconnect
-            socket.on('disconnect', async () => {
-                console.log('user disconnected');
-                // Unlock all objects locked by this user
-                const keys = await redisClient.keys(`lock:*`);
-                for (const key of keys) {
-                    const lockedBy = await redisClient.get(key);
-                    if (lockedBy === userName) {
-                        await redisClient.del(key);
-                    }
-                }
-                io.to(roomId).emit('userLeft', { userName });
-            });
+      // Handle sending messages
+      socket.on('sendMessage', async (message) => {
+        const newMessage = await Message.create({
+          room_id: roomId,
+          user_name: userName,
+          message,
         });
-    });
+        io.to(roomId).emit('newMessage', { userName, message });
+      });
 
-    // Sync models with the database
-    await sequelize.sync();
-
-    server.listen(3000, () => {
-        console.log('Server is running on port 3000');
+      // Handle disconnect
+      socket.on('disconnect', async () => {
+        console.log('user disconnected');
+        // Unlock all objects locked by this user
+        const keys = await redisClient.keys(`lock:*`);
+        for (const key of keys) {
+          const lockedBy = await redisClient.get(key);
+          if (lockedBy === userName) {
+            await redisClient.del(key);
+          }
+        }
+        io.to(roomId).emit('userLeft', { userName });
+      });
     });
+  });
+
+  // Sync models with the database
+  await sequelize.sync();
+
+  server.listen(3000, () => {
+    console.log('Server is running on port 3000');
+  });
 
 }
 
@@ -213,11 +229,11 @@ async function startServer() {
  * @returns {Promise<Object[]>} - The objects for the specified room ID.
  */
 async function getCachedObjects(roomId) {
-    const objects = await ObjectModel.findAll({ where: { room_id: roomId } });
-    cache[roomId] = objects;
-    return objects;
+  const objects = await ObjectModel.findAll({ where: { room_id: roomId }, order: [[sequelize.literal(`(data->>'z')::INTEGER`), 'ASC']]  });
+  cache[roomId] = objects;
+  return objects;
 }
 
 startServer().catch(err => {
-    console.error('Failed to start server:', err);
+  console.error('Failed to start server:', err);
 });
