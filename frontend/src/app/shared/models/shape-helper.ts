@@ -30,7 +30,7 @@ export class ShapesHelper {
         let rect = null;
         let config = null;
         if (element) {
-            rect = new shapes.standard.Rectangle(element.data);
+            rect = new shapes.standard.Rectangle(element.data || element);
             rect.id = element.id;
         } else {
             config = this.createBaseShape(position);
@@ -45,7 +45,7 @@ export class ShapesHelper {
         const config = this.createBaseShape(position);
         config.size = { width: 150, height: 150 };
         if (element) {
-            circle = new shapes.standard.Circle(element.data);
+            circle = new shapes.standard.Circle(element.data || element);
             circle.id = element.id;
         } else {
             circle = new shapes.standard.Circle(config);
@@ -78,7 +78,7 @@ export class ShapesHelper {
           bodyText: { text: 'Double-click to edit', fontSize: 14, fill: 'black' },
         };
         if (element) {
-            notes = new shapes.standard.HeaderedRectangle(element.data);
+            notes = new shapes.standard.HeaderedRectangle(element.data || element);
             notes.id = element.id;
         } else {
             notes = new shapes.standard.HeaderedRectangle(config);
@@ -98,7 +98,7 @@ export class ShapesHelper {
             label: { text: 'Double-click to edit', style: { fontSize: 14, fill: 'black' } },
           };
           if (element) {
-            text = new shapes.standard.TextBlock(element.data);
+            text = new shapes.standard.TextBlock(element.data || element);
             text.id = element.id;
           } else {
             text = new shapes.standard.TextBlock(config);
@@ -111,7 +111,7 @@ export class ShapesHelper {
         const config = this.createBaseShape(position);
         config.size = { width: 150, height: 100 };
         if (element) {
-            ellipse = new shapes.standard.Ellipse(element.data);
+            ellipse = new shapes.standard.Ellipse(element.data || element);
             ellipse.id = element.id;
         } else {
             ellipse = new shapes.standard.Ellipse(config);
@@ -120,7 +120,7 @@ export class ShapesHelper {
     }
 
   static createLink(element: any) {
-    const link = new shapes.standard.Link(element.data);
+    const link = new shapes.standard.Link(element.data || element);
     link.id = element.id;
     return link;
   }

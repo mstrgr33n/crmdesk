@@ -8,6 +8,8 @@ import { SocketService } from './socket.service';
 import { BehaviorSubject } from 'rxjs';
 import { paperConfig } from '../shared/configs/paper.config';
 import { ShapesHelper } from '../shared/models/shape-helper';
+import { debounceTime } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -20,6 +22,7 @@ export class BoardService {
   private paper!: dia.Paper;
   private tools = new JointTools();
   private currentElement: dia.ElementView | null = null;
+  private verticesChangeSubject = new Subject<any>();
 
   constructor(
     private toolbarService: ToolbarService,
@@ -159,18 +162,33 @@ export class BoardService {
 
     this.graph.on('change:source change:target', (link) => {
       if (link.get('source').id && link.get('target').id) {
-        this.socketService.emit('createLink', link);
+        this.socketService.emit('createObject', link);
       }
 
     });
 
-    this.graph.on('change:vertices', (link) => {
-      if (link){
+    this.verticesChangeSubject.pipe(
+      debounceTime(100) 
+    ).subscribe((link: any) => {
+      if (link) {
         this.socketService.emit('updateObject', link);
       }
     });
 
+    this.graph.on('change:source change:target change:vertices', (link: any) => {
+      this.verticesChangeSubject.next(link);
+    });
+
     this.paperMovement();
+  }
+
+  debounce(func: Function, wait: number) {
+    let timeout: any;
+    return (args:any[]) => {
+      const context = this;
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(context, args), wait);
+    };
   }
 
   paperMovement() {
@@ -244,14 +262,20 @@ export class BoardService {
     });
 
     this.socketService.on('objectCreated', (obj: any) => {
-      const element =this.createShape(obj.data.position, false, obj);
+      const element =this.createShape(obj.position, false, obj);
     });
 
     this.socketService.on('objectUpdated', (data: any) => {
       const cell = this.graph.getCell(data.id);
       if (cell) {
-        cell.set('position', data.position);
-        cell.set('size', data.size);
+        if (data.type === BoardState.Link) {
+          cell.set('source',data.source);
+          cell.set('target',data.target);
+          cell.set('vertices', data.vertices);
+        } else {
+          cell.set('position', data.position);
+          cell.set('size', data.size);
+        }
       }
     });
 
