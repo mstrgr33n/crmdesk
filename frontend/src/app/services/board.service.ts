@@ -23,6 +23,7 @@ export class BoardService {
   private tools = new JointTools();
   private currentElement: dia.ElementView | null = null;
   private verticesChangeSubject = new Subject<any>();
+  private resizedObject = new Subject<any>();
 
   constructor(
     private toolbarService: ToolbarService,
@@ -60,6 +61,11 @@ export class BoardService {
       if (this.showAttributePanel.value) this.showAttributePanel.next(false);
       this.addShape(event, x, y);
     });
+
+    this.graph.on('change:size', (element)=> {
+      this.resizedObject.next(element);
+    });
+
     this.paper.on('element:pointerclick', elementView => {
       if (this.currentElement) {
         this.socketService.emit('unlockObject', { id: this.currentElement.model.id });
@@ -172,6 +178,14 @@ export class BoardService {
     ).subscribe((link: any) => {
       if (link) {
         this.socketService.emit('updateObject', link);
+      }
+    });
+
+    this.resizedObject.pipe(
+      debounceTime(100)
+    ).subscribe((element: any) => {
+      if (element) {
+        this.socketService.emit('updateObject', element);
       }
     });
 
@@ -301,7 +315,7 @@ export class BoardService {
     this.socketService.emit('joinRoom', { roomId: roomId, userName: 'User' + rndInt });
 
     this.socketService.on('objectDeleted', (data: any) => {
-      const cell = this.graph.getCell(data.id);
+      const cell = this.graph.getCell(data);
       if (cell) {
         cell.remove({ disconnectLinks: true });
       }

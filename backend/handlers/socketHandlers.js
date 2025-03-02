@@ -11,11 +11,11 @@ class SocketHandlers {
   async handleJoinRoom(socket, { roomId, userName }) {
     const room = await roomService.findOrCreateRoom(roomId);
     socket.join(roomId);
-    
+
     const objects = await roomService.getCachedObjects(roomId);
-    
+
     socket.emit('initialState', objects);
-    socket.to(roomId).emit('userJoined', { userName });
+    socket.broadcast.to(roomId).emit('userJoined', { userName });
     return { room, roomId, userName };
   }
 
@@ -29,10 +29,10 @@ class SocketHandlers {
       });
       object.changed('data', true);
       await object.save();
-      
+
       await redisService.set(`object:${data.id}`, JSON.stringify(data));
-      socket.to(roomId).emit('objectCreated', object);
-      
+      socket.broadcast.to(roomId).emit('objectCreated', object);
+
       return object;
     } catch (error) {
       console.error('Error creating object:', error);
@@ -47,10 +47,10 @@ class SocketHandlers {
         object.set('data', data);
         object.changed('data', true);
         await object.save();
-        
+
         await redisService.set(`object:${data.id}`, JSON.stringify(data));
         await roomService.updateCache(roomId, data.id, data);
-        socket.to(roomId).emit('objectUpdated', data);
+        socket.broadcast.to(roomId).emit('objectUpdated', data);
       }
     } catch (error) {
       console.error('Error updating object:', error);
@@ -58,9 +58,24 @@ class SocketHandlers {
     }
   }
 
+  async handleDeleteObject(socket, data, roomId) {
+    try {
+      const object = await ObjectModel.findByPk(data);
+      if (object) {
+        await redisService.remove(`object:${data}`);
+        await roomService.removeFromCache(roomId, data);
+        await object.destroy();
+        socket.broadcast.to(roomId).emit('objectDeleted', data);
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      throw error;
+    }
+  }
+
   async handleDisconnect(socket, roomId, userName) {
     try {
-      socket.to(roomId).emit('userDisconnected', { userName });
+      socket.broadcast.to(roomId).emit('userDisconnected', { userName });
       const roomSockets = await io.in(roomId).allSockets();
       if (roomSockets.size === 0) {
         await this.saveAllData(roomId);
@@ -87,7 +102,7 @@ class SocketHandlers {
         user: data.user,
         content: data.content,
       });
-      socket.to(roomId).emit('newMessage', message);
+      socket.broadcast.to(roomId).emit('newMessage', message);
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
@@ -106,19 +121,19 @@ class SocketHandlers {
       const keys = await redisService.getKeys(`object:*`);
       for (const key of keys) {
         const data = JSON.parse(await redisService.get(key));
-        
+
         if (!data || !data.data) {
           console.error(`Data for key ${key} is null or undefined`);
           continue;
         }
-  
+
         await ObjectModel.upsert({
           id: data.id,
           room_id: roomId,
           type: data.type,
           data: data.data
         });
-  
+
         await redisService.remove(key);
       }
     } catch (error) {

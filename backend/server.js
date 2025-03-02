@@ -31,6 +31,9 @@ async function startServer() {
       
       socket.on('message', errorHandler(socket, (data) => 
         socketHandlers.handleMessage(socket, data, roomId)));
+
+      socket.on('deleteObject', errorHandler(socket, (data) =>
+        socketHandlers.handleDeleteObject(socket, data, roomId)));
       
       socket.on('disconnect', errorHandler(socket, async () => {
         await socketHandlers.handleDisconnect(socket, roomId, userName);
