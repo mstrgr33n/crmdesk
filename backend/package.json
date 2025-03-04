@@ -1,10 +1,12 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "build": "tsc",
+    "watch": "tsc -w"
   },
   "keywords": [],
   "author": "",
@@ -16,11 +18,19 @@
     "express": "^4.21.2",
     "pg": "^8.13.1",
     "redis": "^4.7.0",
+    "rxjs": "^7.8.2",
     "sequelize": "^6.37.5",
     "socket.io": "^4.8.1",
     "uuid": "^11.0.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.8",
+    "@types/socket.io": "^3.0.1",
+    "@types/uuid": "^10.0.0",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
   }
 }
