@@ -1,8 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import { Point } from './point.model';
 import {
-    shapes,
-    connectionStrategies,
+    shapes
 } from "@joint/core";
 
 export class ShapesHelper {

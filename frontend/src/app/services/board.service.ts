@@ -8,7 +8,7 @@ import { SocketService } from './socket.service';
 import { BehaviorSubject } from 'rxjs';
 import { paperConfig } from '../shared/configs/paper.config';
 import { ShapesHelper } from '../shared/models/shape-helper';
-import { debounceTime } from 'rxjs/operators';
+import { throttleTime } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 
 @Injectable({
@@ -23,7 +23,8 @@ export class BoardService {
   private tools = new JointTools();
   private currentElement: dia.ElementView | null = null;
   private verticesChangeSubject = new Subject<any>();
-  private resizedObject = new Subject<any>();
+  private updatedObject = new Subject<any>(); 
+  private userName: string = '';
 
   constructor(
     private toolbarService: ToolbarService,
@@ -55,7 +56,7 @@ export class BoardService {
     this.paper.on('blank:pointerclick', (event: dia.Event, x: number, y: number) => {
       if (this.currentElement) {
         this.currentElement.removeTools();
-        this.socketService.emit('unlockObject', { id: this.currentElement.model.id });
+        this.socketService.emit('unlockObject', { id: this.currentElement.model.id, userName: this.userName });
       }
       this.currentElement = null;
       if (this.showAttributePanel.value) this.showAttributePanel.next(false);
@@ -63,19 +64,19 @@ export class BoardService {
     });
 
     this.graph.on('change:size', (element)=> {
-      this.resizedObject.next(element);
+      this.updatedObject.next(element);
     });
 
     this.paper.on('element:pointerclick', elementView => {
       if (this.currentElement) {
-        this.socketService.emit('unlockObject', { id: this.currentElement.model.id });
+        this.socketService.emit('unlockObject', { id: this.currentElement.model.id, userName: this.userName });
       }
       this.currentElement = elementView;
       elementView.addTools(tools.LinkTools);
     });
 
     this.paper.on('element:pointermove', (elementView) => {
-      this.socketService.emit('updateObject', elementView.model);
+      this.updatedObject.next(elementView.model);
       const bbox = elementView.getBBox().topLeft();
       this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
     });
@@ -85,7 +86,7 @@ export class BoardService {
       this.showAttributePanel.next(true);
       this.positionAttributePanel.next({ x: bbox.x, y: bbox.y - 70 });
       if (this.currentElement && this.currentElement !== elementView) {
-        this.socketService.emit('lockObject', { id: this.currentElement.model.id });
+        this.socketService.emit('lockObject', { id: this.currentElement.model.id, userName: this.userName });
       }
     });
 
@@ -150,6 +151,9 @@ export class BoardService {
       const model = elementView.model;
       const position = model.get('position');
       const size = model.get('size');
+      debugger;
+
+      this.updatedObject.next(elementView);
 
       this.socketService.emit('updateObject', {
         id: model.id,
@@ -174,15 +178,15 @@ export class BoardService {
     });
 
     this.verticesChangeSubject.pipe(
-      debounceTime(100) 
+      throttleTime(55) 
     ).subscribe((link: any) => {
       if (link) {
         this.socketService.emit('updateObject', link);
       }
     });
 
-    this.resizedObject.pipe(
-      debounceTime(100)
+    this.updatedObject.pipe(
+      throttleTime(55)
     ).subscribe((element: any) => {
       if (element) {
         this.socketService.emit('updateObject', element);
@@ -249,7 +253,7 @@ export class BoardService {
       [BoardState.Notes]: () => ShapesHelper.createNotes(position, element),
       [BoardState.Circle]: () => ShapesHelper.createCircle(position, element),
       [BoardState.Link]: () => ShapesHelper.createLink(element),
-      [BoardState.Select]:  null,
+      [BoardState.Select]: null,
       [BoardState.Save]: null,
     };
 
@@ -310,9 +314,10 @@ export class BoardService {
         }
       }
     });
-    const rndInt = Math.floor(Math.random() * 100) + 1
+    const rndInt = Math.floor(Math.random() * 100) + 1;
+    this.userName = 'User' + rndInt;
     // Join a room
-    this.socketService.emit('joinRoom', { roomId: roomId, userName: 'User' + rndInt });
+    this.socketService.emit('joinRoom', { roomId: roomId, userName: this.userName });
 
     this.socketService.on('objectDeleted', (data: any) => {
       const cell = this.graph.getCell(data);

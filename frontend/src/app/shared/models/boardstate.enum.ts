@@ -8,4 +8,7 @@ export enum BoardState {
     Text = 'standard.TextBlock',
     Save = 'save',
     Link = 'standard.Link',
+    Cylinder = 'standard.Cylinder',
+    TextBlock = 'standard.TextBlock',
+    HeaderedRectangle = 'standard.HeaderedRectangle'
 }

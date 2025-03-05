@@ -10,7 +10,7 @@ import config from '../configs/config';
 class RateLimiter {
   private requests: Record<string, { count: number, timestamp: number }> = {};
   private readonly WINDOW_MS = config.rateLimiter?.windowMs || 1000; // Окно времени из конфигурации
-  private readonly MAX_REQUESTS = config.rateLimiter?.maxRequestsPerSecond || 50; // Максимальное количество запросов в окне
+  private readonly MAX_REQUESTS = config.rateLimiter?.maxRequestsPerSecond || 500; // Максимальное количество запросов в окне
 
   isRateLimited(clientId: string): boolean {
     const now = Date.now();
